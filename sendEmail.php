@@ -8,43 +8,47 @@ use PHPMailer\PHPMailer\Exception;
 //Load Composer's autoloader
 require 'vendor/autoload.php';
 
-require_once __DIR__ . "/rabbitmq-dmzHost/rabbitMQLib.php";
+$creds = (array)json_decode(file_get_contents(__DIR__."/creds.json"));
+print_r($creds);
 
-$client = new rabbitMQProducer('amq.direct', 'dmz');
-
-$response = $client->send_request([ 'type' => 'getWatchedStocks' ]);
+require_once __DIR__ . "/rabbitmq-common/rabbitMQLib.php";
+$client = new rabbitMQProducer('amq.direct', 'push');
+$response = $client->send_request( [ ] );
 if(!$response) {
   die("Error comm. with RMQ!\n");
 } else if (isset($response['error']) && $response['error']) {
   die($response['msg']."\n");
 }
 
-$creds = json_decode(file_get_contents(__DIR__."creds.json"));
+print_r($response);
 
 //Create an instance; passing `true` enables exceptions
 $mail = new PHPMailer(true);
 
 //Server settings
-$mail->SMTPDebug = SMTP::DEBUG_SERVER;                      //Enable verbose debug output
-$mail->isSMTP();                                            //Send using SMTP
-$mail->Host       = $creds->host;                     //Set the SMTP server to send through
-$mail->SMTPAuth   = true;                                   //Enable SMTP authentication
-$mail->Username   = $creds->email;                     //SMTP username
-$mail->Password   = $creds->password;                               //SMTP password
-$mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;            //Enable implicit TLS encryption
-$mail->Port       = $creds->port;                                    //TCP port to connect to; use 587 if you have set `SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS`
-$mail->setFrom($creds->email, 'stonX');
+$mail->SMTPDebug = SMTP::DEBUG_SERVER;
+$mail->isSMTP();
+$mail->Host = $creds['host'];
+$mail->SMTPAuth = true;
+$mail->Username = $creds['email'];
+$mail->Password = $creds['password'];
+$mail->SMTPSecure = 'tls';
+$mail->Port = $creds['port'];
+$mail->setFrom($creds['email'], 'stonX');
 
-try {
-    $mail->addAddress('joe@example.net');
+foreach($response as $watch) {
+  try {
+    $mail->clearAllRecipients();
+    $mail->addAddress($watch['email']);
     
     //Content
     $mail->isHTML(true);
-    $mail->Subject = 'Here is the subject';
-    $mail->Body    = 'This is the HTML message body <b>in bold!</b>';
+    $mail->Subject = 'stonX Watchlist Alert';
+    $mail->Body = 'Your stock ' . $watch['symbol'] . ' has hit your given threshold: ' . $watch['watchValue'];
 
     $mail->send();
     echo 'Message has been sent';
-} catch (Exception $e) {
+  } catch (Exception $e) {
     echo "Message could not be sent. Mailer Error: {$mail->ErrorInfo}";
+  }
 }
