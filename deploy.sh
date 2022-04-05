@@ -7,5 +7,5 @@ composer require phpmailer/phpmailer
 composer update
 
 # RabbitMQ
-git clone https://github.com/stonX-IT490/rabbitmq-common.git
+git clone git@github.com:stonX-IT490/rabbitmq-common.git
 cp config.php rabbitmq-common/
